@@ -3,11 +3,8 @@ import firebase_admin
 from firebase_admin import credentials, db
 import pandas as pd
 from datetime import datetime
-import time
 
-# ----------------------------
-# Firebase Initialization
-# ----------------------------
+# ---------------- Firebase ----------------
 
 firebase_config = dict(st.secrets["firebase"])
 
@@ -18,47 +15,29 @@ if not firebase_admin._apps:
         {"databaseURL": firebase_config["databaseURL"]}
     )
 
-# ----------------------------
-# Streamlit Page Config
-# ----------------------------
+# ---------------- UI ----------------
 
 st.set_page_config(page_title="Gas Dashboard", layout="wide")
 st.title("🔥 Gas Sensor Live Dashboard")
 
-# ----------------------------
-# Auto Refresh every 10 sec
-# ----------------------------
+# Auto refresh every 10 sec
+st.autorefresh(interval=10000, key="refresh")
 
-refresh_interval = 10
-st.caption(f"Auto refresh every {refresh_interval} seconds")
-time.sleep(refresh_interval)
-st.experimental_rerun()
-
-# ----------------------------
-# Read Data from Firebase
-# ----------------------------
+# ---------------- Read Data ----------------
 
 ref = db.reference("gas_history")
 data = ref.get()
 
 if not data:
-    st.warning("No data found in Firebase.")
+    st.warning("No data found.")
     st.stop()
-
-# ----------------------------
-# Convert to DataFrame
-# ----------------------------
 
 df = pd.DataFrame.from_dict(data, orient="index")
 
-# Convert index (timestamp string) to datetime
 df.index = pd.to_datetime(df.index, format="%Y-%m-%d_%H:%M:%S")
-
 df = df.sort_index()
 
-# ----------------------------
-# Show Latest Reading
-# ----------------------------
+# ---------------- Metrics ----------------
 
 latest_value = df["gas_value"].iloc[-1]
 
@@ -73,17 +52,12 @@ with col2:
     else:
         st.success("Gas Level Normal")
 
-# ----------------------------
-# Line Chart
-# ----------------------------
+# ---------------- Chart ----------------
 
 st.subheader("Gas Level Over Time")
-
 st.line_chart(df["gas_value"])
 
-# ----------------------------
-# Show Table (Optional)
-# ----------------------------
+# ---------------- Table ----------------
 
 with st.expander("Show Raw Data"):
     st.dataframe(df)
