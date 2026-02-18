@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import pandas as pd
 from datetime import datetime
+import time
 
 # ---------------- Firebase ----------------
 
@@ -15,13 +16,10 @@ if not firebase_admin._apps:
         {"databaseURL": firebase_config["databaseURL"]}
     )
 
-# ---------------- UI ----------------
+# ---------------- Page Config ----------------
 
 st.set_page_config(page_title="Gas Dashboard", layout="wide")
 st.title("🔥 Gas Sensor Live Dashboard")
-
-# Auto refresh every 10 sec
-st.autorefresh(interval=10000, key="refresh")
 
 # ---------------- Read Data ----------------
 
@@ -30,34 +28,32 @@ data = ref.get()
 
 if not data:
     st.warning("No data found.")
-    st.stop()
+else:
+    df = pd.DataFrame.from_dict(data, orient="index")
 
-df = pd.DataFrame.from_dict(data, orient="index")
+    df.index = pd.to_datetime(df.index, format="%Y-%m-%d_%H:%M:%S")
+    df = df.sort_index()
 
-df.index = pd.to_datetime(df.index, format="%Y-%m-%d_%H:%M:%S")
-df = df.sort_index()
+    latest_value = df["gas_value"].iloc[-1]
 
-# ---------------- Metrics ----------------
+    col1, col2 = st.columns(2)
 
-latest_value = df["gas_value"].iloc[-1]
+    with col1:
+        st.metric("Current Gas Value", int(latest_value))
 
-col1, col2 = st.columns(2)
+    with col2:
+        if latest_value > 1500:
+            st.error("⚠️ Gas Level HIGH!")
+        else:
+            st.success("Gas Level Normal")
 
-with col1:
-    st.metric("Current Gas Value", int(latest_value))
+    st.subheader("Gas Level Over Time")
+    st.line_chart(df["gas_value"])
 
-with col2:
-    if latest_value > 1500:
-        st.error("⚠️ Gas Level HIGH!")
-    else:
-        st.success("Gas Level Normal")
+    with st.expander("Show Raw Data"):
+        st.dataframe(df)
 
-# ---------------- Chart ----------------
+# ---------------- Auto Refresh ----------------
 
-st.subheader("Gas Level Over Time")
-st.line_chart(df["gas_value"])
-
-# ---------------- Table ----------------
-
-with st.expander("Show Raw Data"):
-    st.dataframe(df)
+time.sleep(10)
+st.rerun()
